@@ -268,11 +268,6 @@ From the repo root:
 ## Notes & Limitations
 
 - One in‑flight query per client connection. Use multiple clients for parallelism.
-- No JDBC abstraction (by design).
-- No HTTP interface.
 - Some advanced ClickHouse types are not implemented yet (e.g., AggregateFunction, JSON/Object, Geo types).
 - `Nothing` cannot be used as a table column (ClickHouse restriction).
 
-## License
-
-Specify your license here.
