@@ -1102,6 +1102,75 @@ import NIOPosix
     }
 }
 
+@Test func integrationJSONType_roundtrip() async throws {
+    let env = ProcessInfo.processInfo.environment
+    guard env["CLICKHOUSE_HOST"] != nil else { return }
+    guard !restartOnlyMode() else { return }
+    try await ClickHouseIntegrationLock.shared.withLock {
+        let config = try requireClickHouseConfig()
+        let table = uniqueTableName(prefix: "swift_native_json")
+        let client = try await ClickHouseClient(config: config)
+        var created = false
+        defer {
+            let dropTable = created
+            Task {
+                if dropTable {
+                    try? await client.execute("DROP TABLE IF EXISTS \(table)")
+                }
+                await client.close()
+            }
+        }
+
+        guard await supportsJSONType(client: client) else { return }
+
+        let createSQL = "CREATE TABLE \(table) (id UInt64, payload JSON) ENGINE=Memory"
+        do {
+            try await client.execute(createSQL, settings: ["allow_experimental_json_type": .int64(1)])
+            created = true
+        } catch {
+            if let serverError = error as? CHServerException {
+                let message = serverError.message.lowercased()
+                if message.contains("unknown setting") || message.contains("setting") && message.contains("unknown") {
+                    try await client.execute(createSQL)
+                    created = true
+                } else if message.contains("unknown type") || (message.contains("json") && message.contains("experimental")) {
+                    return
+                } else {
+                    throw error
+                }
+            } else {
+                throw error
+            }
+        }
+
+        let json1 = "{\"a\":1,\"b\":\"x\"}"
+        let json2 = "{\"a\":2,\"b\":\"y\"}"
+
+        var builder = CHBlockBuilder()
+        builder.addColumn(name: "id", type: CHUInt64Type(), values: [UInt64(1), UInt64(2)])
+        builder.addColumn(name: "payload", type: CHJSONType(), values: [json1, json2])
+        let block = try builder.build()
+        try await client.insert(into: table, block: block)
+
+        struct Row: Decodable, Sendable {
+            let a: Int64
+            let b: String
+        }
+
+        let rows = try await client.queryRows(
+            "SELECT JSONExtractInt(payload, 'a') AS a, JSONExtractString(payload, 'b') AS b FROM \(table) ORDER BY id",
+            as: Row.self
+        )
+        var out: [Row] = []
+        for try await row in rows { out.append(row) }
+        #expect(out.count == 2)
+        #expect(out[0].a == 1)
+        #expect(out[0].b == "x")
+        #expect(out[1].a == 2)
+        #expect(out[1].b == "y")
+    }
+}
+
 @Test func integrationInsertRoundtrip_nestedTypes() async throws {
     guard ProcessInfo.processInfo.environment["CLICKHOUSE_HOST"] != nil else { return }
     guard !restartOnlyMode() else { return }
@@ -2619,6 +2688,18 @@ private func waitForQueryGone(client: ClickHouseClient, queryId: String, timeout
         try await Task.sleep(nanoseconds: 200_000_000)
     }
     return false
+}
+
+private func supportsJSONType(client: ClickHouseClient) async -> Bool {
+    do {
+        let count = try await client.queryOne(
+            "SELECT count() FROM system.data_type_families WHERE name = 'JSON'",
+            as: UInt64.self
+        ) ?? 0
+        return count > 0
+    } catch {
+        return false
+    }
 }
 
 private func uniqueTableName(prefix: String) -> String {

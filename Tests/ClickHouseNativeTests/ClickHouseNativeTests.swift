@@ -19,6 +19,9 @@ import NIOCore
     let boolType = try CHDataTypeFactory.parse("Bool")
     #expect(boolType.name == "Bool")
 
+    let jsonType = try CHDataTypeFactory.parse("JSON")
+    #expect(jsonType.name == "JSON")
+
     let binaryType = try CHDataTypeFactory.parse("Binary(4)")
     let fixed = binaryType as? CHFixedStringType
     #expect(fixed?.length == 4)

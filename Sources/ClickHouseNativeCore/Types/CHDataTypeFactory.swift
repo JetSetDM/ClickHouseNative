@@ -36,6 +36,8 @@ public enum CHDataTypeFactory {
             return CHFloat64Type()
         case "string":
             return CHStringType()
+        case "json":
+            return CHJSONType()
         case "bool":
             return CHBoolType()
         case "uuid":

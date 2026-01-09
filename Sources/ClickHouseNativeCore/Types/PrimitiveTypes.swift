@@ -265,6 +265,27 @@ public struct CHStringType: CHDataType {
     }
 }
 
+public struct CHJSONType: CHDataType {
+    public let name = "JSON"
+    public init() {}
+
+    public func decodeColumn(rows: Int, reader: inout CHBinaryReader) throws -> [Any?] {
+        var values: [Any?] = []
+        values.reserveCapacity(rows)
+        for _ in 0..<rows {
+            values.append(try reader.readUTF8String())
+        }
+        return values
+    }
+
+    public func encodeColumn(values: [Any?], writer: inout CHBinaryWriter) throws {
+        for value in values {
+            let v = value as? String ?? ""
+            writer.writeUTF8String(v)
+        }
+    }
+}
+
 public struct CHFixedStringType: CHDataType {
     public let name: String
     public let length: Int

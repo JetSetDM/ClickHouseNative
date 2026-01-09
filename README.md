@@ -170,6 +170,7 @@ Values are mapped to Swift as listed below:
 ### Strings / Binary
 
 - `String` → `String`
+- `JSON` → `String` (raw JSON text)
 - `FixedString(N)` / `Binary(N)` → `Data`
 
 ### Date / Time
@@ -268,6 +269,5 @@ From the repo root:
 ## Notes & Limitations
 
 - One in‑flight query per client connection. Use multiple clients for parallelism.
-- Some advanced ClickHouse types are not implemented yet (e.g., AggregateFunction, JSON/Object, Geo types).
+- Some advanced ClickHouse types are not implemented yet (e.g., AggregateFunction, Object, Geo types).
 - `Nothing` cannot be used as a table column (ClickHouse restriction).
-
